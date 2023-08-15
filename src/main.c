@@ -4,6 +4,7 @@
 #include <termios.h>
 #include <unistd.h>
 #include <string.h>
+#include "utils.h"
 
 enum clientStatus { Offline, Away, Online };
 
@@ -19,37 +20,18 @@ struct termState {
 
 struct termState S;
 
-void die(const char *s) {
-  perror(s);
-  exit(1);
-}
+typedef void (*RenderText)(const char *s, int posX, int posY, int bgColor, int color);
+typedef void (*ClearScreen)();
+
+typedef struct {
+  struct termios term;
+  RenderText renderText;
+  ClearScreen clearScreen;
+} TerminalRenderer;
 
 void clearScreen() {
   write(STDOUT_FILENO, "\x1b[2J", 4);
   write(STDOUT_FILENO, "\x1b[H", 3);
-}
-
-void disableRawMode() {
-  if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &S.term) == -1) {
-    die("tcsetattr");
-  }
-}
-
-void enableRawMode() {
-  if (tcgetattr(STDIN_FILENO, &S.term) == -1)
-    die("tcseattr");
-  atexit(disableRawMode);
-
-  struct termios raw = S.term;
-  raw.c_iflag &= ~(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
-  raw.c_oflag &= ~(OPOST);
-  raw.c_cflag &= ~(CS8);
-  raw.c_lflag &= ~(ECHO | ICANON | IEXTEN | ISIG);
-  raw.c_cc[VMIN] = 0;
-  raw.c_cc[VTIME] = 1;
-
-  if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == -1)
-    die("tsceattr");
 }
 
 void keyHandler() {
@@ -63,6 +45,7 @@ void keyHandler() {
   switch (c) {
   case 'q':
     clearScreen();
+    disableRaw(S.term);
     exit(0);
     break;
   default:
@@ -71,24 +54,34 @@ void keyHandler() {
   }
 }
 
-void renderText(const char *s, int posX, int posY) {
+void renderText(const char *s, int posX, int posY, int bgColor, int color) {
   char buf[32];
   sprintf(buf, "\x1b[%d;%dH", posX, posY);
 
   write(STDOUT_FILENO, buf, strlen(buf));
-  write(STDOUT_FILENO, s, 13);
+
+  char colorBuf[32];
+  sprintf(colorBuf, "\x1b[%dm", bgColor);
+  write(STDOUT_FILENO, colorBuf, strlen(colorBuf));
+  write(STDOUT_FILENO, s, strlen(s));
+  write(STDOUT_FILENO, "\x1b[0m", 4);
+}
+
+void hr() {
+  renderText("------------------------------------------------------------------------------------------------------------------------------", 2, 1, 40, 43);
 }
 
 void init() {
-  C.status = Offline;
+  C.status = Online;
   const char *s = C.status == Offline ? "Offline" : "Online";
+  int color = C.status == Offline ? 41 : 42;
 
-  write(STDOUT_FILENO, "\033[1;1H", 7);
-  write(STDOUT_FILENO, s, strlen(s));
+  renderText(s, 1, 1, color, 40);
+  hr();
 }
 
 int main() {
-  enableRawMode();
+  enableRaw(S.term);
 
   while (1) {
     clearScreen();

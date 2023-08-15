@@ -1,2 +1,5 @@
-build: main.c
-	$(CC) main.c -o soulck -Wall -Wextra -pedantic -std=c99
+SOURCES = $(wildcard src/*.c)
+OBJECTS = $(SOURCES:.c=.o)
+
+build: $(OBJECTS)
+	$(CC) $(SOURCES) -o soulck -Wall -Wextra -pedantic -std=c99
