@@ -2,7 +2,7 @@
 #define UTILS_H
 
 void die(const char *s);
-void enableRaw(struct termios term);
-void disableRaw(struct termios term);
+void enableRaw();
+void disableRaw();
 
 #endif
